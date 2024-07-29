@@ -105,7 +105,8 @@ def create_country_constraint(df, model, player, map_idx, players_grouped, num_c
     for i, nation_list in enumerate(input.COUNTRY):
         expr = []
         for nation in nation_list:
-            expr += players_grouped["Country"].get(map_idx["Country"][nation], [])
+            if nation in map_idx["Country"]:
+                expr += players_grouped["Country"].get(map_idx["Country"][nation], [])
         model.Add(cp_model.LinearExpr.Sum(expr) >= input.NUM_COUNTRY[i])
     return model
 
@@ -115,7 +116,8 @@ def create_league_constraint(df, model, player, map_idx, players_grouped, num_cn
     for i, league_list in enumerate(input.LEAGUE):
         expr = []
         for league in league_list:
-            expr += players_grouped["League"].get(map_idx["League"][league], [])
+            if league in map_idx["League"]:
+                expr += players_grouped["League"].get(map_idx["League"][league], [])
         model.Add(cp_model.LinearExpr.Sum(expr) >= input.NUM_LEAGUE[i])
     return model
 
@@ -125,7 +127,8 @@ def create_club_constraint(df, model, player, map_idx, players_grouped, num_cnts
     for i, club_list in enumerate(input.CLUB):
         expr = []
         for club in club_list:
-            expr += players_grouped["Club"].get(map_idx["Club"][club], [])
+            if club in map_idx["Club"]:
+                expr += players_grouped["Club"].get(map_idx["Club"][club], [])
         model.Add(cp_model.LinearExpr.Sum(expr) >= input.NUM_CLUB[i])
     return model
 
@@ -145,9 +148,11 @@ def create_rarity_2_constraint(df, model, player, map_idx, players_grouped, num_
     '''[Rare, Non Rare, TOTW, gold, silver, bronze ... etc] (>=).'''
     for i, rarity in enumerate(input.RARITY_2):
         col = "Rarity"
+
         # Change according to dataset.
         if rarity in ["Gold", "Silver", "Bronze"]:
             col = "Color"
+
         expr = players_grouped[col].get(map_idx[col][rarity], [])
         model.Add(cp_model.LinearExpr.Sum(expr) >= input.NUM_RARITY_2[i])
     return model
@@ -483,7 +488,9 @@ def prioritize_duplicates(df, model, player):
     duplicates = [player[j] for j in dup_idxes]
     dup_expr = cp_model.LinearExpr.Sum(duplicates)
     if input.USE_ALL_DUPLICATES:
-        model.Add(dup_expr == min(input.NUM_PLAYERS, len(dup_idxes)))
+        df.loc[(df["IsDuplicate"] == True), 'Cost'] = 1
+
+        # model.Add(dup_expr == min(input.NUM_PLAYERS, len(dup_idxes)))
     elif input.USE_AT_LEAST_HALF_DUPLICATES:
         model.Add(2 * dup_expr >= min(input.NUM_PLAYERS, len(dup_idxes)))
     elif input.USE_AT_LEAST_ONE_DUPLICATE:
@@ -527,43 +534,70 @@ def SBC(df):
     '''Comment out the constraints not required'''
 
     '''Club'''
-    # model = create_club_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    # model = create_max_club_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    # model = create_min_club_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    # model = create_unique_club_constraint(df, model, player, club, map_idx, players_grouped, num_cnts)
+    ### Total players from i^th list >= NUM_CLUB[i]
+    if input.CLUB:
+        model = create_club_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Same Club Count: Max X
+    if input.MAX_NUM_CLUB:
+        model = create_max_club_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Same Club Count: Min X
+    if input.MIN_NUM_CLUB:
+        model = create_min_club_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Clubs: Max / Min / Exactly X
+    if input.NUM_UNIQUE_CLUB:
+        model = create_unique_club_constraint(df, model, player, club, map_idx, players_grouped, num_cnts)
     '''Club'''
 
     '''League'''
-    # model = create_league_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    model = create_max_league_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    # model = create_min_league_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    model = create_unique_league_constraint(df, model, player, league, map_idx, players_grouped, num_cnts)
+    ### Total players from i^th list >= NUM_LEAGUE[i]
+    if input.LEAGUE:
+        model = create_league_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Same League Count: Max X
+    if input.MAX_NUM_LEAGUE:
+        model = create_max_league_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Same League Count: Min X
+    if input.MIN_NUM_LEAGUE:
+        model = create_min_league_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Leagues: Max / Min / Exactly X
+    if input.NUM_UNIQUE_LEAGUE:
+        model = create_unique_league_constraint(df, model, player, league, map_idx, players_grouped, num_cnts)
     '''League'''
 
     '''Country'''
-    # model = create_country_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    model = create_max_country_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    # model = create_min_country_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    model = create_unique_country_constraint(df, model, player, country, map_idx, players_grouped, num_cnts)
+    ### Total players from i^th list >= NUM_COUNTRY[i]
+    if input.COUNTRY:
+        model = create_country_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Same Nation Count: Max X
+    if input.MAX_NUM_COUNTRY:
+        model = create_max_country_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Same Nation Count: Min X
+    if input.MIN_NUM_COUNTRY:
+        model = create_min_country_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    ### Nations: Max / Min / Exactly X
+    if input.NUM_UNIQUE_COUNTRY:
+        model = create_unique_country_constraint(df, model, player, country, map_idx, players_grouped, num_cnts)
     '''Country'''
 
     '''Rarity'''
     # model = create_rarity_1_constraint(df, model, player, map_idx, players_grouped, num_cnts)
-    # model = create_rarity_2_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    if input.RARITY_2:
+        model = create_rarity_2_constraint(df, model, player, map_idx, players_grouped, num_cnts)
     '''Rarity'''
 
     '''Squad Rating'''
     # model = create_squad_rating_constraint_1(df, model, player, map_idx, players_grouped, num_cnts)
     # model = create_squad_rating_constraint_2(df, model, player, map_idx, players_grouped, num_cnts)
-    model = create_squad_rating_constraint_3(df, model, player, map_idx, players_grouped, num_cnts)
+    if input.SQUAD_RATING > 0:
+        model = create_squad_rating_constraint_3(df, model, player, map_idx, players_grouped, num_cnts)
     '''Squad Rating'''
 
     '''Min Overall'''
-    # model = create_min_overall_constraint(df, model, player, map_idx, players_grouped, num_cnts)
+    if input.MIN_OVERALL:
+        model = create_min_overall_constraint(df, model, player, map_idx, players_grouped, num_cnts)
     '''Min Overall'''
 
     '''Duplicates'''
-    # model = prioritize_duplicates(df, model, player)
+    model = prioritize_duplicates(df, model, player)
 
     '''Comment out the constraints not required'''
 
@@ -582,7 +616,7 @@ def SBC(df):
 
     '''Solver Parameters'''
     # solver.parameters.random_seed = 42
-    solver.parameters.max_time_in_seconds = 600
+    solver.parameters.max_time_in_seconds = 120
     # Whether the solver should log the search progress.
     solver.parameters.log_search_progress = True
     # Specify the number of parallel workers (i.e. threads) to use during search.
@@ -594,12 +628,12 @@ def SBC(df):
     # Relative: abs(O - B) / max(1, abs(O)).
     # Note that if the gap is reached, the search status will be OPTIMAL. But
     # one can check the best objective bound to see the actual gap.
-    # solver.parameters.relative_gap_limit = 0.05
+    solver.parameters.relative_gap_limit = 0.2
     # solver.parameters.cp_model_presolve = False
     # solver.parameters.stop_after_first_solution = True
     '''Solver Parameters'''
 
-    status = solver.Solve(model, ObjectiveEarlyStopping(timer_limit = 60))
+    status = solver.Solve(model, ObjectiveEarlyStopping(timer_limit = 40))
     print(input.status_dict[status])
     print('\n')
     final_players = []

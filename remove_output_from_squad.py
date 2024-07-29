@@ -1,0 +1,3 @@
+from save_squad_lib import remove_output_from_squad
+
+remove_output_from_squad()
